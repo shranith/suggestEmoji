@@ -4,7 +4,6 @@ from utils import *
 import emoji
 import matplotlib.pyplot as plt
 
-
 def sentences_to_indices(X, word_to_index, max_len):
     m = X.shape[0]
     X_indices = np.zeros((m, max_len))
@@ -142,6 +141,6 @@ if __name__ == '__main__':
     word_to_index, index_to_word, word_to_vec_map = read_glove_vecs('data/glove.6B.50d.txt')
 
     pred, W, b = Emojify_V1(X_train, Y_train, word_to_vec_map)
-
-    print(pred)
-    print(Y_train)
+    pred = predict(X_test, Y_test, W, b, word_to_vec_map)
+    for iter in range(len(X_test)):
+        print(X_test[iter], label_to_emoji(Y_test[iter]), label_to_emoji(pred[iter]))
