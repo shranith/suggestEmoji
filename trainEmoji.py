@@ -2,39 +2,17 @@
 import numpy as np
 from utils import *
 import emoji
+import os
+import tensorflow as tf
 import matplotlib.pyplot as plt
-
-def sentences_to_indices(X, word_to_index, max_len):
-    m = X.shape[0]
-    X_indices = np.zeros((m, max_len))
-    for i in range(m):
-        sentence_words = X[i].lower().split()
-        j = 0
-        for w in sentence_words:
-            X_indices[i, j] = word_to_index[w]
-            j = j + 1
-    return X_indices
-
-def pretrained_embedding_layer(word_to_vec_map, word_to_index):
-    vocab_len = len(word_to_index) + 1  #word index begin with 1,plus 1 for padding 0
-    emb_dim = word_to_vec_map["cucumber"].shape[0]
-    emb_matrix = np.zeros((vocab_len, emb_dim))
-    for word, index in word_to_index.items():
-        emb_matrix[index, :] = word_to_vec_map[word]
-    embedding_layer = Embedding(vocab_len, emb_dim, trainable=False)
-    embedding_layer.build((None,))
-    embedding_layer.set_weights([emb_matrix])
-    return embedding_layer
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 def predict(X, Y, W, b, word_to_vec_map):
-    m = Y.shape[0]                          # number of training examples
+    m = Y.shape[0] # number of training examples
     a = []
-    for i in range(m):                                # Loop over the training examples
-
-        ### START CODE HERE ### (≈ 4 lines of code)
+    for i in range(m): # Loop over the training examples
         # Average the word vectors of the words from the i'th training example
         avg = sentence_to_avg(X[i], word_to_vec_map)
-
         # Forward propagate the avg through the softmax layer
         z = np.dot(W, avg) + b
         l = list(softmax(z))
@@ -133,14 +111,43 @@ def Emojify_V1(X, Y, word_to_vec_map, learning_rate = 0.01, num_iterations = 400
 
     return pred, W, b
 
+def predict_mode(word_to_vec_map):
+    '''
+    load W matrix and bias matrix from disk
+
+    '''
+    W = np.genfromtxt('data/W.csv',delimiter=',')
+    b = np.genfromtxt('data/b.csv', delimiter = ',')
+
+    # Converting the weights to tensors
+
+    W = tf.convert_to_tensor(W, np.float64)
+    b = tf.convert_to_tensor(b, np.float64)
+    
+    sent_avg = tf.placeholder(np.float64)
+    z = tf.add(tf.tensordot(W, sent_avg, axes=1), b)
+    k = tf.argmax(tf.nn.softmax(z), axis=0)
+
+    sentence = input("Enter a sentence or type `quit` to exit \n")
+
+    with tf.Session() as sess:
+        tf.global_variables_initializer().run()
+        while sentence != "quit":
+            index = np.asscalar(sess.run(k, feed_dict={sent_avg: sentence_to_avg(sentence, word_to_vec_map)}))
+            print(label_to_emoji(index)+"\n")
+            sentence = input("Enter a sentence or type `quit` to exit \n")
+
 if __name__ == '__main__':
 
+
+    word_to_index, index_to_word, word_to_vec_map = read_glove_vecs('data/glove.6B.50d.txt')
+    predict_mode(word_to_vec_map)
+    exit()
     X_train, Y_train = read_csv('data/dataTrain.csv')
     X_test, Y_test = read_csv('data/dataTest.csv')
-    maxLen = len(max(X_train, key=len).split())
-    word_to_index, index_to_word, word_to_vec_map = read_glove_vecs('data/glove.6B.50d.txt')
-
     pred, W, b = Emojify_V1(X_train, Y_train, word_to_vec_map)
+    np.savetxt("W.csv",W,delimiter=',')
+    np.savetxt("b.csv",b,delimiter=',')
     pred = predict(X_test, Y_test, W, b, word_to_vec_map)
     for iter in range(len(X_test)):
         print(X_test[iter], label_to_emoji(Y_test[iter]), label_to_emoji(pred[iter]))
